@@ -1,10 +1,11 @@
 # 静的サイト(ビルド不要)を GitHub Pages へ公開するワークフロー
 name: Deploy to GitHub Pages
 
+# 注意: github-pages 環境は「デフォルトブランチからのデプロイ」のみ許可されます。
+# デフォルトブランチを変更した場合は、下の branches も合わせて書き換えてください。
 on:
   push:
     branches:
-      - main
       - claude/precision-sheet-metal-learning-0ohqhc
   workflow_dispatch:
 
