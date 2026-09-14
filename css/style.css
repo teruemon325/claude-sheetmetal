@@ -198,4 +198,12 @@ mark{background:var(--accent-soft);padding:0 2px}
   .topbar-search{max-width:none}
   .topbar .brand span{display:none}
 }
-@media print{.topbar,.sidebar,.footer,.lesson-nav,.anim-ctrl{display:none!important}.main{max-width:none;padding:0}}
+/* 免責表示 */
+.disclaimer{margin:34px 0 0;padding:12px 16px;border:1px solid var(--border);border-left:4px solid var(--warn);border-radius:0 10px 10px 0;background:var(--surface-2);font-size:.82rem;color:var(--muted);line-height:1.7}
+.disclaimer b.dt{display:block;color:var(--warn);font-size:.85rem;margin-bottom:3px;letter-spacing:.04em}
+.disclaimer p{margin:.2em 0}
+.disclaimer a{color:var(--muted);text-decoration:underline}
+.preview-tag{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:5px;font-size:.68rem;font-weight:700;padding:1px 6px;white-space:nowrap;letter-spacing:.04em}
+.dis-page h3{margin-top:1.5em}
+.dis-page ol{padding-left:1.3em}
+@media print{.topbar,.sidebar,.footer,.lesson-nav,.anim-ctrl{display:none!important}.main{max-width:none;padding:0}.disclaimer{break-inside:avoid;page-break-inside:avoid;color:#333;background:none}}

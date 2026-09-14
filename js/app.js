@@ -16,6 +16,11 @@
   const badge = lv=>`<span class="badge lv-${lv}">${LV[lv]}</span>`;
   const doneCount = ()=>lessons.filter(x=>P.done[x.key]).length;
   const pct = ()=>Math.round(doneCount()/lessons.length*100);
+  const DIS = `<aside class="disclaimer"><b class="dt">免責事項</b>
+<p>本サイトは<b>仮公開中</b>の学習用教材です。掲載する数値(伸び値・K値・V幅・公差・トン数・板厚など)は一般的な代表値・目安であり、設備・金型・材料ロット・図面指示によって異なります。実際の設計・加工・検査では、<b>自社の基準書・伸び値表・作業手順書および JIS 等の規格原本</b>を必ずご確認ください。作業安全は労働安全衛生法および自社の安全基準に従ってください。内容の正確性・完全性を保証するものではなく、本サイトの利用により生じた損害について作成者は責任を負いません。</p>
+<p><a href="#/disclaimer">免責事項・ご利用上の注意(全文)を読む</a></p></aside>`;
+  const dis = ()=>{ if(!main.querySelector('.disclaimer')) main.insertAdjacentHTML('beforeend', DIS); };
+
   const shuffle = a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
   const allQuiz = ()=>{ const q=[]; lessons.forEach(x=>(x.l.quiz||[]).forEach(qq=>q.push(Object.assign({ch:x.ch.id,level:x.l.level,src:x.l.title},qq)))); (C.extraQuiz||[]).forEach(qq=>q.push(Object.assign({src:'総合'},qq))); return q; };
 
@@ -39,6 +44,8 @@
       `<div class="nav-section"><a class="nav-title" href="#/quiz"><span class="ico">📝</span>理解度クイズ</a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/glossary"><span class="ico">📖</span>用語集<span class="cnt">${C.glossary.length}</span></a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/progress"><span class="ico">📊</span>学習進捗</a></div>`,
+      `<div class="nav-divider"></div>`,
+      `<div class="nav-section"><a class="nav-title" href="#/disclaimer"><span class="ico">⚠️</span><span style="font-size:.9rem;font-weight:600">免責事項・ご利用上の注意</span></a></div>`,
     ];
     $('#sidebarInner').innerHTML=nav.join('');
     $('#progressPill').textContent=pct()+'%';
@@ -93,7 +100,7 @@ ${(l.quiz&&l.quiz.length)?`<h2>📝 理解度チェック</h2><div id="lq"></div
 <div class="card" style="text-align:center"><button class="btn ${P.done[key]?'secondary':'ok'}" id="doneBtn">${P.done[key]?'学習済みを取り消す':'✓ このレッスンを学習完了にする'}</button></div>
 <div class="lesson-nav">${prev?`<a class="btn secondary" href="#/lesson/${prev.key}">‹ ${prev.l.title}</a>`:'<span></span>'}${next?`<a class="btn" href="#/lesson/${next.key}">${next.l.title} ›</a>`:'<a class="btn" href="#/quiz">総合クイズへ ›</a>'}</div>`;
     if(l.quiz&&l.quiz.length) renderQuiz($('#lq'), l.quiz, (score,total)=>{ P.lq[key]={score,total}; store.save(P); });
-    $('#doneBtn').onclick=()=>{ if(P.done[key]) delete P.done[key]; else P.done[key]=Date.now(); store.save(P); renderSidebar(key); V.lesson(cid,lid); window.scrollTo(0,document.body.scrollHeight); };
+    $('#doneBtn').onclick=()=>{ if(P.done[key]) delete P.done[key]; else P.done[key]=Date.now(); store.save(P); renderSidebar(key); V.lesson(cid,lid); dis(); window.scrollTo(0,document.body.scrollHeight); };
     SM_ANIM.mount(main);
   };
 
@@ -173,7 +180,39 @@ ${Object.keys(P.quiz).length?`<div class="table-wrap"><table class="lesson-body"
 <div class="stats"><div class="stat"><div class="v">${pct()}%</div><div class="l">全体進捗</div></div><div class="stat"><div class="v">${doneCount()}/${lessons.length}</div><div class="l">完了レッスン</div></div><div class="stat"><div class="v">${Object.keys(P.lq).length}</div><div class="l">レッスン内クイズ受験</div></div></div>
 ${C.chapters.map(ch=>`<div class="card"><h3>${ch.icon} ${ch.title}</h3><div class="table-wrap"><table class="lesson-body" style="margin:0"><tr><th>レッスン</th><th>レベル</th><th>状態</th><th>理解度チェック</th></tr>${ch.lessons.map(l=>{ const k=ch.id+'/'+l.id; const q=P.lq[k]; return `<tr><td><a href="#/lesson/${k}">${l.title}</a></td><td>${badge(l.level)}</td><td>${P.done[k]?'<span style="color:var(--ok)">✓ 完了</span>':'<span style="color:var(--muted)">未</span>'}</td><td>${q?`${q.score}/${q.total}`:'—'}</td></tr>`; }).join('')}</table></div></div>`).join('')}
 <div class="card"><h3>データ管理</h3><p>進捗はこのブラウザ内(localStorage)に保存されています。</p><button class="btn secondary" id="resetBtn">進捗をリセット</button></div>`;
-    $('#resetBtn').onclick=()=>{ if(confirm('学習進捗とクイズ成績をすべて削除します。よろしいですか?')){ P={done:{},quiz:{},lq:{}}; store.save(P); renderSidebar(); V.progress(); } };
+    $('#resetBtn').onclick=()=>{ if(confirm('学習進捗とクイズ成績をすべて削除します。よろしいですか?')){ P={done:{},quiz:{},lq:{}}; store.save(P); renderSidebar(); V.progress(); dis(); } };
+  };
+
+  V.disclaimer = ()=>{
+    main.innerHTML=`<div class="crumb"><a href="#/home">ホーム</a> › 免責事項</div>
+<h1>⚠️ 免責事項・ご利用上の注意</h1>
+<div class="callout warn"><b>本サイトは仮公開中です</b>内容は予告なく変更・修正されることがあります。業務で参照される場合は、必ず自社の基準書・規格原本と併せてご確認ください。</div>
+<div class="card dis-page">
+<h3>1. 本サイトの位置づけ</h3>
+<p>本サイト「精密板金加工 学習ツール」は、精密板金加工の設計・加工・検査に関する一般的な技術知識を、学習目的で体系的にまとめた<b>教材</b>です。特定の企業の作業標準書・技術基準・品質基準を示すものではありません。</p>
+<h3>2. 掲載内容について</h3>
+<ol>
+<li>掲載している数値(伸び値・K値・V幅・最小フランジ・曲げ内R・穴と曲げ線の距離・クリアランス・トン数・公差・膜厚・板厚など)は、<b>一般的な代表値および目安</b>です。実際の値は、機械・金型・材料メーカー・材料ロット・潤滑条件・図面指示によって変動します。</li>
+<li>計算ツールの結果は概算です。設計・加工の可否判断は、<b>自社の伸び値表・金型仕様・設備能力</b>に基づいて行ってください。</li>
+<li>JIS(日本産業規格)等の規格値を参照している箇所がありますが、規格は改正されることがあります。適用にあたっては<b>必ず最新の規格原本</b>をご確認ください。本サイトは規格原本の代替とはなりません。</li>
+<li>材料・金型・薬品等の取り扱いは、各メーカーの技術資料・安全データシート(SDS)の指示が優先されます。</li>
+</ol>
+<h3>3. 安全に関する注意</h3>
+<p>板金加工の現場には、切創・挟まれ・巻き込まれ・感電・アーク光・ヒューム・粉じん・火災などの危険があります。本サイトの安全に関する記述は一般的な注意事項であり、網羅的なものではありません。実作業にあたっては、<b>労働安全衛生法をはじめとする関係法令、所属する事業場の安全衛生規程・作業手順書、および機械メーカーの取扱説明書</b>に従ってください。必要な資格・特別教育を要する作業があります。</p>
+<h3>4. 商標・第三者の権利</h3>
+<p>本文中に記載されている会社名・製品名・規格名は、各社の商標または登録商標です。本サイトは特定の企業・製品・サービスを推奨するものではありません。</p>
+<h3>5. 免責</h3>
+<ol>
+<li>作成者は、本サイトの内容の正確性・完全性・有用性・特定目的への適合性について、いかなる保証も行いません。</li>
+<li>本サイトの情報を利用したこと、または利用できなかったことにより生じた、いかなる損害(寸法不良・不良品の発生・設備の損傷・人身事故・逸失利益等を含みますが、これらに限りません)についても、作成者は一切の責任を負いません。</li>
+<li>本サイトの内容は予告なく変更・削除されることがあります。</li>
+</ol>
+<h3>6. データの取り扱い</h3>
+<p>学習進捗およびクイズの成績は、ご利用のブラウザ内(localStorage)にのみ保存されます。外部サーバーへの送信・収集は行っていません。ブラウザのデータを消去すると進捗も削除されます。</p>
+<h3>7. お問い合わせ・誤りのご指摘</h3>
+<p>内容の誤りや改善のご指摘は、本サイトの公開元リポジトリの Issue 等でお知らせください。仮公開期間中は特に、現場の実情に合わせたご指摘を歓迎します。</p>
+</div>
+<p style="text-align:center"><a class="btn secondary" href="#/home">ホームに戻る</a></p>`;
   };
 
   /* ---------- ルーター ---------- */
@@ -193,8 +232,10 @@ ${C.chapters.map(ch=>`<div class="card"><h3>${ch.icon} ${ch.title}</h3><div clas
       case 'glossary': V.glossary(); break;
       case 'search': V.search(p.slice(1).join('/')); break;
       case 'progress': V.progress(); break;
+      case 'disclaimer': V.disclaimer(); break;
       default: V.home();
     }
+    if(v!=='disclaimer') dis();
     renderSidebar(active);
     if(v!=='tips') window.scrollTo({top:0,left:0,behavior:'instant'});
     document.title = (v==='lesson'&&lessons.find(x=>x.key===active)? lessons.find(x=>x.key===active).l.title+' — ':'') + '精密板金加工 学習ツール';
