@@ -381,22 +381,24 @@
     };
     box(-L/2-26,L/2+26,-P.dieH-42,-P.dieH,-78,52,COL.bed);
     const ramY=punchY+P.punchH;
-    box(-L/2-26,L/2+26,ramY,ramY+38,-78,52,COL.ram);
+    box(-L/2-26,L/2+26,ramY,ramY+32,-78,52,COL.ram);
     return m;
   }
 
   /* 干渉判定: 部品頂点を機械断面に射影して金型多角形の内外を見る */
-  function checkHit(P,pts,punchY,off){
+  function checkHit(P,pts,punchY,off,seated){
     const pp=punchProfile(P.punchAng,P.punchW,P.punchH,P.goose,P.gd,P.gh);
+    const dp=seated?null:dieProfile(P.V,P.dieAng,P.rs,P.dieW,P.dieH);
     const exP=(P.R+P.T)*1.4+1.0, TOL=0.25;
     for(let i=0;i<pts.length;i+=9){
       const x=pts[i],y=pts[i+1],z=pts[i+2];
       if(Math.abs(x)>P.toolLen/2) continue;
       const py=y-punchY;
       if(Math.hypot(z,py)>exP && ptIn(pp,[z,py]) && dPoly2(pp,[z,py])>TOL) return {what:'パンチ',p:[x,y,z]};
+      if(dp && ptIn(dp,[z,y]) && dPoly2(dp,[z,y])>TOL) return {what:'ダイ',p:[x,y,z]};
     }
-    /* 曲げ部以外がダイに当たって部品が浮くと off が大きくなる */
-    if(off>2.0) return {what:'ダイ',p:[0,0,0],off};
+    /* 載せた状態で曲げ部以外がダイに当たると部品が浮く */
+    if(seated && off>2.0) return {what:'ダイ',p:[0,0,0],off};
     return null;
   }
 
@@ -427,9 +429,9 @@
       document.getElementById('s3msg').textContent='このブラウザではWebGLが使えないため3D表示できません。2D断面のシミュレーターをご利用ください。'; return; }
 
     S={preset:'tray',T:1.6,V:10,R:1.67,toolLen:265,dieAng:88,rs:0.8,dieH:55,dieW:34,
-       punchAng:88,punchW:26,punchH:95,goose:true,gd:4,gh:52,
+       punchAng:88,punchW:26,punchH:80,goose:true,gd:4,gh:48,
        playing:true,speed:1,step:0,phase:0,tp:0,showTool:true,rev:false,
-       az:-38,el:18,dist:500,drag:null};
+       az:-38,el:18,dist:540,drag:null};
     buildPart(); buildCtrl(); loop();
 
     cv.addEventListener('pointerdown',e=>{S.drag={x:e.clientX,y:e.clientY,az:S.az,el:S.el};cv.setPointerCapture(e.pointerId);});
@@ -482,10 +484,10 @@
     on('s3prev','click',()=>{S.step=Math.max(0,S.step-1);S.phase=0;S.tp=0;});
     on('s3next','click',()=>{S.step=Math.min(S.order.length-1,S.step+1);S.phase=0;S.tp=0;});
     on('s3reset','click',()=>{S.step=0;S.phase=0;S.tp=0;});
-    on('s3view','click',()=>{S.az=-38;S.el=18;S.dist=500;});
+    on('s3view','click',()=>{S.az=-38;S.el=18;S.dist=540;});
   }
 
-  const PH=[0.95,0.45,1.15,0.3,0.45];   // 持ち替え/下降/成形/保持/上昇
+  const PH=[1.25,0.5,1.15,0.3,0.5];   // 持ち替え/下降/成形/保持/上昇
 
   function stateNow(){
     const k=S.order[S.step], b=S.bends[k];
@@ -535,21 +537,27 @@
       const B=toQT(seatPart(S,S.root,angles,kb,0).G);
       const u=S.tp, bow=Math.sin(Math.PI*u);
       GG=fromQT(slerp(A.q,B.q,u),
-        [A.t[0]+(B.t[0]-A.t[0])*u, A.t[1]+(B.t[1]-A.t[1])*u+bow*26, A.t[2]+(B.t[2]-A.t[2])*u-bow*80]);
+        [A.t[0]+(B.t[0]-A.t[0])*u, A.t[1]+(B.t[1]-A.t[1])*u+bow*10, A.t[2]+(B.t[2]-A.t[2])*u+bow*55]);
       poseTree(S.root,angles,S.T,S.R,GG);
       pm=new Mesh(); partMesh(pm,S.root,S.T,S.R,COL.part);
+      // 持ち替え中はダイ上面より確実に上へ浮かせる
+      let lo=1e9; for(let i=0;i<pm.p.length;i+=3) lo=Math.min(lo,pm.p[i+1]);
+      const up=Math.max(0,2.5-lo);
+      if(up>0) for(let i=0;i<pm.p.length;i+=3) pm.p[i+1]+=up;
     } else {
       const r=seatPart(S,S.root,angles,kb,st.theta);
       GG=r.G; off=r.off; punchTip=r.punchTip; pm=r.mesh;
     }
 
-    const park=S.T+S.V*2.8;
+    // ラムの退避位置は部品の高さより上に取り、持ち替えで金型に当たらないようにする
+    let hi=-1e9; for(let i=0;i<pm.p.length;i+=3) hi=Math.max(hi,pm.p[i+1]);
+    const park=Math.max(S.T+S.V*2.8, hi+20);
     let py=punchTip;
     if(S.phase===0) py=park;
     else if(S.phase===1) py=park+(punchTip-park)*S.tp;
     else if(S.phase===4) py=punchTip+(park-punchTip)*S.tp;
 
-    const hit=(S.showTool&&S.phase!==0)?checkHit(S,pm.p,py,off):null;
+    const hit=S.showTool?checkHit(S,pm.p,py,off,S.phase!==0):null;
     if(hit){ for(let i=0;i<pm.c.length;i+=3){pm.c[i]=COL.hit[0];pm.c[i+1]=COL.hit[1];pm.c[i+2]=COL.hit[2];} }
     const mm=machineMesh(S,py,S.showTool);
     const all=new Mesh();
