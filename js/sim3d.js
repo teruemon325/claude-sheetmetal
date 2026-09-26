@@ -363,7 +363,7 @@
   }
 
   /* 機械(ベッド・ダイ・パンチ・ラム)のメッシュ */
-  function machineMesh(P,punchY,showTool,pLen){
+  function machineMesh(P,punchY,showTool,pLen,hideUp){
     const m=new Mesh(), L=P.toolLen;
     if(!showTool) return m;
     const dp=dieProfile(P.V,P.dieAng,P.rs,P.dieW,P.dieH);
@@ -372,9 +372,11 @@
     const pp=punchProfile(P.punchAng,P.punchW,P.punchH,P.goose,P.gd,P.gh)
       .map(q=>[q[0],q[1]+punchY]);
     /* パンチは曲げ線の長さに合わせて分割・短く組む(箱曲げの定石) */
-    const PL=Math.min(L,pLen||L), pseg=Math.max(1,Math.round(PL/45)), pgap=2.0;
-    const pw2=(PL-pgap*(pseg-1))/pseg;
-    for(let i=0;i<pseg;i++){ const x0=-PL/2+i*(pw2+pgap); extrude(m,pp,x0,x0+pw2,COL.tool); }
+    if(!hideUp){
+      const PL=Math.min(L,pLen||L), pseg=Math.max(1,Math.round(PL/45)), pgap=2.0;
+      const pw2=(PL-pgap*(pseg-1))/pseg;
+      for(let i=0;i<pseg;i++){ const x0=-PL/2+i*(pw2+pgap); extrude(m,pp,x0,x0+pw2,COL.tool); }
+    }
     const box=(x0,x1,y0,y1,z0,z1,col)=>{
       const q=(a,b,c,d,n)=>m.quad(a,b,c,d,col,n);
       q([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],[0,1,0]);
@@ -385,8 +387,8 @@
       q([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[-1,0,0]);
     };
     box(-L/2-26,L/2+26,-P.dieH-42,-P.dieH,-78,52,COL.bed);
-    const ramY=punchY+P.punchH;
-    box(-L/2-26,L/2+26,ramY,ramY+32,-78,52,COL.ram);
+    if(!hideUp){ const ramY=punchY+P.punchH;
+      box(-L/2-26,L/2+26,ramY,ramY+32,-78,52,COL.ram); }
     return m;
   }
 
@@ -442,14 +444,14 @@
     S={preset:'tray',T:1.6,V:10,R:1.67,toolLen:265,dieAng:88,rs:0.8,dieH:55,dieW:34,
        punchAng:88,punchW:26,punchH:115,goose:true,gd:4,gh:56,
        playing:true,speed:1,step:0,phase:0,tp:0,showTool:true,rev:false,
-       az:-38,el:18,dist:540,drag:null};
+       az:-38,el:18,dist:540,ty:26,view:'iso',hideUp:false,tgt:null,drag:null};
     buildPart(); buildCtrl(); loop();
 
-    cv.addEventListener('pointerdown',e=>{S.drag={x:e.clientX,y:e.clientY,az:S.az,el:S.el};cv.setPointerCapture(e.pointerId);});
+    cv.addEventListener('pointerdown',e=>{S.drag={x:e.clientX,y:e.clientY,az:S.az,el:S.el};S.tgt=null;S.hideUp=false;setView(null);cv.setPointerCapture(e.pointerId);});
     cv.addEventListener('pointermove',e=>{ if(!S.drag)return;
       S.az=S.drag.az+(e.clientX-S.drag.x)*0.4; S.el=clamp(S.drag.el+(e.clientY-S.drag.y)*0.3,-8,78); });
     cv.addEventListener('pointerup',()=>{S.drag=null;});
-    cv.addEventListener('wheel',e=>{e.preventDefault();S.dist=clamp(S.dist*(1+e.deltaY*0.0012),160,1100);},{passive:false});
+    cv.addEventListener('wheel',e=>{e.preventDefault();S.tgt=null;S.dist=clamp(S.dist*(1+e.deltaY*0.0012),90,1100);},{passive:false});
   }
 
   function buildPart(){
@@ -460,6 +462,12 @@
     S.order=S.bends.map((b,i)=>i);
     if(S.rev) S.order.reverse();
     S.step=0; S.phase=0; S.tp=0;
+  }
+
+  function setView(k){
+    S.view=k;
+    const box=document.getElementById('s3views'); if(!box) return;
+    box.querySelectorAll('button').forEach(b=>b.className='btn small'+(b.dataset.v===k?'':' secondary'));
   }
 
   function buildCtrl(){
@@ -481,8 +489,10 @@
 <button class="btn small secondary" id="s3prev">‹ 前の曲げ</button>
 <button class="btn small secondary" id="s3next">次の曲げ ›</button>
 <button class="btn small secondary" id="s3reset">最初から</button>
-<button class="btn small secondary" id="s3view">視点を戻す</button>
 </div>
+<h3>視点</h3>
+<div class="s3views" id="s3views">${Object.keys(VIEWS).map(k=>`<button class="btn small ${k==='iso'?'':'secondary'}" data-v="${k}">${VIEWS[k].n}</button>`).join('')}</div>
+<p style="font-size:.8rem;color:var(--muted);margin:.5em 0 0">ドラッグで自由に回転、ホイールで拡大縮小もできます。</p>
 <p style="font-size:.8rem;color:var(--muted);margin:.7em 0 0">板厚と曲げ数は部品ごとに決まっています。曲げ内Rは V幅÷6 で近似しています。</p>`;
     const on=(id,ev,fn)=>document.getElementById(id).addEventListener(ev,fn);
     on('s3part','change',e=>{S.preset=e.target.value;buildPart();});
@@ -495,10 +505,20 @@
     on('s3prev','click',()=>{S.step=Math.max(0,S.step-1);S.phase=0;S.tp=0;});
     on('s3next','click',()=>{S.step=Math.min(S.order.length-1,S.step+1);S.phase=0;S.tp=0;});
     on('s3reset','click',()=>{S.step=0;S.phase=0;S.tp=0;});
-    on('s3view','click',()=>{S.az=-38;S.el=18;S.dist=540;});
+    document.getElementById('s3views').querySelectorAll('button').forEach(btn=>
+      btn.addEventListener('click',()=>{ const v=VIEWS[btn.dataset.v];
+        S.tgt={az:v.az,el:v.el,dist:v.dist,ty:v.ty}; S.hideUp=!!v.hideUp; setView(btn.dataset.v); }));
   }
 
-  const PH=[1.25,0.5,1.15,0.3,0.5];   // 持ち替え/下降/成形/保持/上昇
+  const PH=[1.25,0.5,1.15,0.3,0.5];
+  /* 視点プリセット: az=方位角(0が正面/操作者側、90が右横)、el=仰角、ty=注視点の高さ */
+  const VIEWS={
+    iso  :{n:'斜め',       az:-38, el:18, dist:540, ty:26},
+    front:{n:'正面',       az:0,   el:12, dist:520, ty:26},
+    side :{n:'横(断面)',  az:90,  el:6,  dist:430, ty:26},
+    top  :{n:'上面',       az:0,   el:82, dist:520, ty:6,  hideUp:true},
+    zoom :{n:'曲げ部アップ',az:88,  el:14, dist:265, ty:12},
+  };   // 持ち替え/下降/成形/保持/上昇
 
   function stateNow(){
     const k=S.order[S.step], b=S.bends[k];
@@ -518,6 +538,14 @@
     let last=performance.now();
     const frame=now=>{
       const dt=Math.min(0.05,(now-last)/1000); last=now;
+      if(S.tgt){
+        const k=Math.min(1,dt*7);
+        const da=((S.tgt.az-S.az+540)%360)-180;
+        S.az+=da*k; S.el+=(S.tgt.el-S.el)*k;
+        S.dist+=(S.tgt.dist-S.dist)*k; S.ty+=(S.tgt.ty-S.ty)*k;
+        if(Math.abs(da)<0.25&&Math.abs(S.tgt.el-S.el)<0.25&&Math.abs(S.tgt.dist-S.dist)<0.8){
+          S.az=S.tgt.az; S.el=S.tgt.el; S.dist=S.tgt.dist; S.ty=S.tgt.ty; S.tgt=null; }
+      }
       if(S.playing){
         S.tp+=dt*S.speed/PH[S.phase];
         while(S.tp>=1){ S.tp-=1; S.phase++;
@@ -571,21 +599,22 @@
     const pLen=Math.min(S.toolLen,(kb.rect[2]-kb.rect[0])+6);
     const hit=S.showTool?checkHit(S,pm.p,py,off,S.phase!==0,pLen):null;
     if(hit){ for(let i=0;i<pm.c.length;i+=3){pm.c[i]=COL.hit[0];pm.c[i+1]=COL.hit[1];pm.c[i+2]=COL.hit[2];} }
-    const mm=machineMesh(S,py,S.showTool,pLen);
+    const mm=machineMesh(S,py,S.showTool,pLen,S.hideUp);
     const all=new Mesh();
     all.p=mm.p.concat(pm.p); all.n=mm.n.concat(pm.n); all.c=mm.c.concat(pm.c);
 
     const ar=cv.width/cv.height;
     const a=rad(S.az), e=rad(S.el);
-    const eye=[Math.sin(a)*Math.cos(e)*S.dist, Math.sin(e)*S.dist+40, Math.cos(a)*Math.cos(e)*S.dist];
-    const vp=M4.mul(M4.persp(rad(34),ar,5,3000),M4.lookAt(eye,[0,26,0],[0,1,0]));
+    const D=S.dist*Math.max(1,1.2/ar);   // 縦長画面では引いて全体を収める
+    const eye=[Math.sin(a)*Math.cos(e)*D, Math.sin(e)*D+S.ty+14, Math.cos(a)*Math.cos(e)*D];
+    const vp=M4.mul(M4.persp(rad(34),ar,5,3000),M4.lookAt(eye,[0,S.ty,0],[0,1,0]));
     const cs=getComputedStyle(document.body).backgroundColor.match(/\d+/g)||[245,246,248];
     drawMesh(ctx,all,vp,[cs[0]/255,cs[1]/255,cs[2]/255]);
 
     const names=['持ち替え(位置と向きを変更)','パンチ下降','成形中','保持','ラム上昇'];
     document.getElementById('s3hud').innerHTML=
       `<b>工程 ${S.step+1} / ${S.order.length}</b> — 曲げ${st.k+1}(${Math.abs(kb.ang)}°)<br>
-       <span class="ph">${names[S.phase]}</span> ・ 曲げ角度 ${f(st.theta,0)}° ・ パンチ長さ ${f(pLen,0)}mm
+       <span class="ph">${names[S.phase]}</span> ・ 曲げ角度 ${f(st.theta,0)}° ・ パンチ長さ ${f(pLen,0)}mm${S.hideUp?'<br><span style="color:var(--muted)">上面視のためラムとパンチを非表示</span>':''}
        ${hit?`<br><span class="hit">✕ ${hit.what}と干渉</span>`:''}`;
     const steps=S.order.map((bi,i)=>{
       const b=S.bends[bi];

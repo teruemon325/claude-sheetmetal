@@ -217,6 +217,8 @@ mark{background:var(--accent-soft);padding:0 2px}
 .s3tbl th,.s3tbl td{border:1px solid var(--border);padding:5px 9px;text-align:left}
 .s3tbl th{background:var(--surface-2)}
 .s3tbl tr.cur td{background:var(--primary-soft);font-weight:700}
+.s3views{display:flex;flex-wrap:wrap;gap:6px}
+.s3views button{flex:1 1 auto;min-width:72px}
 
 /* 曲げシミュレーター */
 .sim-wrap{display:grid;grid-template-columns:330px 1fr;gap:16px;align-items:start;margin:14px 0}
