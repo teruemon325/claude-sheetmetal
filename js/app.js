@@ -40,7 +40,8 @@
       `<div class="nav-divider"></div>`,
       `<div class="nav-section"><a class="nav-title ${active==='knowhow'?'active':''}" href="#/knowhow"><span class="ico">💡</span>ノウハウ集<span class="cnt">${C.knowhow.length}</span></a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/tips"><span class="ico">⭐</span>ワンポイントアドバイス<span class="cnt">${C.tips.length}</span></a></div>`,
-      `<div class="nav-section"><a class="nav-title" href="#/sim"><span class="ico">🛠️</span>曲げシミュレーター</a></div>`,
+      `<div class="nav-section"><a class="nav-title" href="#/sim3d"><span class="ico">🏭</span>3D曲げ工程シミュレーター</a></div>`,
+      `<div class="nav-section"><a class="nav-title" href="#/sim"><span class="ico">🛠️</span>曲げシミュレーター(2D断面)</a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/calc"><span class="ico">🧮</span>計算ツール</a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/quiz"><span class="ico">📝</span>理解度クイズ</a></div>`,
       `<div class="nav-section"><a class="nav-title" href="#/glossary"><span class="ico">📖</span>用語集<span class="cnt">${C.glossary.length}</span></a></div>`,
@@ -77,7 +78,8 @@
 <div class="grid">${C.chapters.map(ch=>{ const d=ch.lessons.filter(l=>P.done[ch.id+'/'+l.id]).length; return `<a class="chapter-card" href="#/chapter/${ch.id}"><div class="ico">${ch.icon}</div><h3>${ch.title}</h3><p>${ch.desc}</p><div class="bar"><i style="width:${Math.round(d/ch.lessons.length*100)}%"></i></div><p style="margin-top:4px;font-size:.8rem">${d}/${ch.lessons.length} 完了</p></a>`; }).join('')}
 <a class="chapter-card" href="#/knowhow"><div class="ico">💡</div><h3>ノウハウ集</h3><p>現場の困りごと → 原因 → 対策を${C.knowhow.length}件収録。</p></a>
 <a class="chapter-card" href="#/tips"><div class="ico">⭐</div><h3>ワンポイントアドバイス</h3><p>覚えておきたいコツ${C.tips.length}件。</p></a>
-<a class="chapter-card" href="#/sim"><div class="ico">🛠️</div><h3>曲げシミュレーター</h3><p>断面形状と条件を入力し、成形過程・展開図・荷重・成形可否を試算。</p></a>
+<a class="chapter-card" href="#/sim3d"><div class="ico">🏭</div><h3>3D曲げ工程シミュレーター</h3><p>プレスブレーキの中で部品を1曲げずつ成形。持ち替えと金型干渉を3Dで確認。</p></a>
+<a class="chapter-card" href="#/sim"><div class="ico">🛠️</div><h3>曲げシミュレーター(2D断面)</h3><p>断面形状と条件を入力し、成形過程・展開図・荷重・成形可否を試算。</p></a>
 <a class="chapter-card" href="#/calc"><div class="ico">🧮</div><h3>計算ツール</h3><p>展開長・曲げトン数・設計ルール・質量・公差・角度誤差。</p></a>
 <a class="chapter-card" href="#/quiz"><div class="ico">📝</div><h3>理解度クイズ</h3><p>章別・レベル別のランダム出題で理解度を確認。</p></a>
 </div>
@@ -142,6 +144,8 @@ ${list.map(k=>`<details class="kh"><summary>${esc(k.title)} <span class="badge c
   V.calc = (tab)=>{ SM_CALC.render(main, tab); };
 
   V.sim = ()=>{ SM_SIM.render(main); };
+
+  V.sim3d = ()=>{ SM_SIM3D.render(main); };
 
   V.quiz = (mode)=>{
     const pool=allQuiz();
@@ -223,6 +227,7 @@ ${C.chapters.map(ch=>`<div class="card"><h3>${ch.icon} ${ch.title}</h3><div clas
   function route(){
     SM_ANIM.unmountAll();
     if(window.SM_SIM) SM_SIM.stop();
+    if(window.SM_SIM3D) SM_SIM3D.stop();
     const h=(location.hash||'#/home').replace(/^#\/?/,'').split('?')[0]; const p=h.split('/');
     const v=p[0]||'home';
     sidebar.classList.remove('open'); backdrop.classList.remove('show');
@@ -234,6 +239,7 @@ ${C.chapters.map(ch=>`<div class="card"><h3>${ch.icon} ${ch.title}</h3><div clas
       case 'tips': V.tips(p[1]); break;
       case 'calc': V.calc(p[1]); break;
       case 'sim': V.sim(); break;
+      case 'sim3d': V.sim3d(); break;
       case 'quiz': V.quiz(p[1]); break;
       case 'glossary': V.glossary(); break;
       case 'search': V.search(p.slice(1).join('/')); break;

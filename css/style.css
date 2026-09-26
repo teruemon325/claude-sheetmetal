@@ -198,6 +198,26 @@ mark{background:var(--accent-soft);padding:0 2px}
   .topbar-search{max-width:none}
   .topbar .brand span{display:none}
 }
+/* 3D曲げ工程シミュレーター */
+.sim3d-wrap{display:grid;grid-template-columns:1fr 310px;gap:16px;align-items:start;margin:14px 0}
+@media(max-width:940px){.sim3d-wrap{grid-template-columns:1fr}}
+.sim3d-stage{position:relative;margin:0;padding:0;overflow:hidden;min-height:300px}
+.sim3d-stage canvas{display:block;width:100%;height:min(62vh,520px);touch-action:none;cursor:grab}
+.sim3d-stage canvas:active{cursor:grabbing}
+.sim3d-hud{position:absolute;left:12px;top:12px;font-size:.85rem;line-height:1.6;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:7px 11px;pointer-events:none;opacity:.95;max-width:75%}
+.sim3d-hud .ph{color:var(--primary);font-weight:700}
+.sim3d-hud .hit{color:var(--ng);font-weight:700}
+.sim3d-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;
+  text-align:center;color:var(--muted);background:var(--surface-2)}
+.sim3d-msg[hidden]{display:none!important}
+.sim3d-ctrl{margin:0}
+.sim3d-ctrl .calc-form{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.s3tbl{width:100%;border-collapse:collapse;font-size:.9rem}
+.s3tbl th,.s3tbl td{border:1px solid var(--border);padding:5px 9px;text-align:left}
+.s3tbl th{background:var(--surface-2)}
+.s3tbl tr.cur td{background:var(--primary-soft);font-weight:700}
+
 /* 曲げシミュレーター */
 .sim-wrap{display:grid;grid-template-columns:330px 1fr;gap:16px;align-items:start;margin:14px 0}
 @media(max-width:940px){.sim-wrap{grid-template-columns:1fr}}
