@@ -339,8 +339,10 @@
     let off=-1e9;
     for(let i=0;i<pts.length;i+=3){
       const y=pts[i+1], z=pts[i+2];
-      if(Math.abs(z)>half) continue;
-      const allow=Math.abs(z)>=hv?0:-(hv-Math.abs(z))/tn;
+      let allow;
+      if(Math.abs(z)<=half) allow=Math.abs(z)>=hv?0:-(hv-Math.abs(z))/tn;   // ダイ上面とV溝
+      else if(z>-78&&z<52) allow=-P.dieH;                                    // ベッド上面
+      else continue;
       if(allow-y>off) off=allow-y;
     }
     return off===-1e9?0:off;
@@ -361,7 +363,7 @@
   }
 
   /* 機械(ベッド・ダイ・パンチ・ラム)のメッシュ */
-  function machineMesh(P,punchY,showTool){
+  function machineMesh(P,punchY,showTool,pLen){
     const m=new Mesh(), L=P.toolLen;
     if(!showTool) return m;
     const dp=dieProfile(P.V,P.dieAng,P.rs,P.dieW,P.dieH);
@@ -369,7 +371,10 @@
     for(let i=0;i<seg;i++){ const x0=-L/2+i*(sw+gap); extrude(m,dp,x0,x0+sw,COL.tool); }
     const pp=punchProfile(P.punchAng,P.punchW,P.punchH,P.goose,P.gd,P.gh)
       .map(q=>[q[0],q[1]+punchY]);
-    for(let i=0;i<seg;i++){ const x0=-L/2+i*(sw+gap); extrude(m,pp,x0,x0+sw,COL.tool); }
+    /* パンチは曲げ線の長さに合わせて分割・短く組む(箱曲げの定石) */
+    const PL=Math.min(L,pLen||L), pseg=Math.max(1,Math.round(PL/45)), pgap=2.0;
+    const pw2=(PL-pgap*(pseg-1))/pseg;
+    for(let i=0;i<pseg;i++){ const x0=-PL/2+i*(pw2+pgap); extrude(m,pp,x0,x0+pw2,COL.tool); }
     const box=(x0,x1,y0,y1,z0,z1,col)=>{
       const q=(a,b,c,d,n)=>m.quad(a,b,c,d,col,n);
       q([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],[0,1,0]);
@@ -386,16 +391,22 @@
   }
 
   /* 干渉判定: 部品頂点を機械断面に射影して金型多角形の内外を見る */
-  function checkHit(P,pts,punchY,off,seated){
+  function checkHit(P,pts,punchY,off,seated,pLen){
     const pp=punchProfile(P.punchAng,P.punchW,P.punchH,P.goose,P.gd,P.gh);
     const dp=seated?null:dieProfile(P.V,P.dieAng,P.rs,P.dieW,P.dieH);
     const exP=(P.R+P.T)*1.4+1.0, TOL=0.25;
-    for(let i=0;i<pts.length;i+=9){
+    const ramY=punchY+P.punchH, bedY=-P.dieH, hx=P.toolLen/2+26, phx=Math.min(P.toolLen,pLen||P.toolLen)/2;
+    for(let i=0;i<pts.length;i+=3){
       const x=pts[i],y=pts[i+1],z=pts[i+2];
-      if(Math.abs(x)>P.toolLen/2) continue;
+      /* ラム(上部テーブル)・ベッドは幅の広い直方体なので常に見る */
+      if(Math.abs(x)<hx && z>-78 && z<52){
+        if(y>ramY+TOL) return {what:'ラム(上部テーブル)',p:[x,y,z]};
+        if(y<bedY-TOL) return {what:'ベッド(下部テーブル)',p:[x,y,z]};
+      }
+      if(i%9) continue;
       const py=y-punchY;
-      if(Math.hypot(z,py)>exP && ptIn(pp,[z,py]) && dPoly2(pp,[z,py])>TOL) return {what:'パンチ',p:[x,y,z]};
-      if(dp && ptIn(dp,[z,y]) && dPoly2(dp,[z,y])>TOL) return {what:'ダイ',p:[x,y,z]};
+      if(Math.abs(x)<=phx && Math.hypot(z,py)>exP && ptIn(pp,[z,py]) && dPoly2(pp,[z,py])>TOL) return {what:'パンチ',p:[x,y,z]};
+      if(dp && Math.abs(x)<=P.toolLen/2 && ptIn(dp,[z,y]) && dPoly2(dp,[z,y])>TOL) return {what:'ダイ',p:[x,y,z]};
     }
     /* 載せた状態で曲げ部以外がダイに当たると部品が浮く */
     if(seated && off>2.0) return {what:'ダイ',p:[0,0,0],off};
@@ -429,7 +440,7 @@
       document.getElementById('s3msg').textContent='このブラウザではWebGLが使えないため3D表示できません。2D断面のシミュレーターをご利用ください。'; return; }
 
     S={preset:'tray',T:1.6,V:10,R:1.67,toolLen:265,dieAng:88,rs:0.8,dieH:55,dieW:34,
-       punchAng:88,punchW:26,punchH:80,goose:true,gd:4,gh:48,
+       punchAng:88,punchW:26,punchH:115,goose:true,gd:4,gh:56,
        playing:true,speed:1,step:0,phase:0,tp:0,showTool:true,rev:false,
        az:-38,el:18,dist:540,drag:null};
     buildPart(); buildCtrl(); loop();
@@ -557,9 +568,10 @@
     else if(S.phase===1) py=park+(punchTip-park)*S.tp;
     else if(S.phase===4) py=punchTip+(park-punchTip)*S.tp;
 
-    const hit=S.showTool?checkHit(S,pm.p,py,off,S.phase!==0):null;
+    const pLen=Math.min(S.toolLen,(kb.rect[2]-kb.rect[0])+6);
+    const hit=S.showTool?checkHit(S,pm.p,py,off,S.phase!==0,pLen):null;
     if(hit){ for(let i=0;i<pm.c.length;i+=3){pm.c[i]=COL.hit[0];pm.c[i+1]=COL.hit[1];pm.c[i+2]=COL.hit[2];} }
-    const mm=machineMesh(S,py,S.showTool);
+    const mm=machineMesh(S,py,S.showTool,pLen);
     const all=new Mesh();
     all.p=mm.p.concat(pm.p); all.n=mm.n.concat(pm.n); all.c=mm.c.concat(pm.c);
 
@@ -573,7 +585,7 @@
     const names=['持ち替え(位置と向きを変更)','パンチ下降','成形中','保持','ラム上昇'];
     document.getElementById('s3hud').innerHTML=
       `<b>工程 ${S.step+1} / ${S.order.length}</b> — 曲げ${st.k+1}(${Math.abs(kb.ang)}°)<br>
-       <span class="ph">${names[S.phase]}</span> ・ 曲げ角度 ${f(st.theta,0)}°
+       <span class="ph">${names[S.phase]}</span> ・ 曲げ角度 ${f(st.theta,0)}° ・ パンチ長さ ${f(pLen,0)}mm
        ${hit?`<br><span class="hit">✕ ${hit.what}と干渉</span>`:''}`;
     const steps=S.order.map((bi,i)=>{
       const b=S.bends[bi];
